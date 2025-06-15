@@ -1,13 +1,14 @@
 # Dependencies
-/node_modules
+node_modules/
+
 
 # Build artifacts
-/dist
-/coverage
+dist/
+coverage/
 
-# Environment variables
+# Environment variables for both backend and frontend
 .env
-*.env.local
+*.env.local/
 
 # IDE and OS files
 .idea
@@ -18,3 +19,7 @@
 *.sln
 *.sw?
 .DS_Store
+
+# Ignore the variant summary files
+variant_summary.txt
+variant_summary.txt.gz
