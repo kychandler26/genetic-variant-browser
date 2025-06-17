@@ -18,6 +18,32 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+
+// Helper function to map the raw variant type from the file to our clean ENUM types.
+function mapVariantType(rawType) {
+  const type = rawType.toLowerCase(); // Convert to lowercase for easier matching
+
+  if (type.includes('single nucleotide variant')) {
+    return 'SNP';
+  }
+  if (type.includes('deletion')) {
+    return 'Deletion';
+  }
+  if (type.includes('insertion')) {
+    return 'Insertion';
+  }
+  if (type.includes('duplication')) {
+    return 'Duplication';
+  }
+  if (type.includes('indel')) {
+    return 'Indel';
+  }
+
+  // If it's a type we don't care about (e.g., 'Microsatellite'), return null.
+  return null; 
+}
+
+
 // Main function to extract, transform, and load the data
 async function processAndLoadData() {
   let pool;
@@ -48,6 +74,38 @@ async function processAndLoadData() {
     .on('data', async (row) => {
       // Log the row to the console for debugging
       console.log('Processing row:', row);
+      
+      //Add a check at the beginning of your .on('data',...) handler to return (skip) the row if 
+      // row.ClinicalSignificance or row.GeneSymbol is missing or not provided.
+      if (!row.ClinicalSignificance || !row.GeneSymbol) {
+        console.log('Skipping row due to missing ClinicalSignificance or GeneSymbol:', row);
+        return; // Skip this row  
+      }
+
+      //Create a new, clean object that will hold only the data destined for your database. 
+      //Pull the values from the row object, which has keys directly from the file's header.
+      //Remember that if a column name has special characters like # or (, you must use bracket
+      // notation to access it (e.g., row['RS# (dbSNP)']).
+      const variantData = {
+          gene_name: row.GeneSymbol.trim(),
+          variant_id: row['RS# (dbSNP)'] || null, // Use null if the ID is missing
+          genomic_position: row.Name,
+          
+          // Clean the 'Type' column. We'll use a helper function for this to keep the code clean.
+          variant_type: mapVariantType(row.Type), 
+          
+          // Clean the 'ClinicalSignificance' column. .trim() removes extra whitespace.
+          clinical_significance: row.ClinicalSignificance.trim(),
+          details: row.PhenotypeList || 'No phenotype listed.'
+      
+      }
+
+      if (!variantData.variant_type) {
+        return; // Skip rows with unmapped or unwanted variant types
+        }
+
+      console.log(variantData);
+
     })
     .on('end', async (rowCount) => {
       console.log('Finished processing the file.');
