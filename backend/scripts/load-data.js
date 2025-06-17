@@ -8,11 +8,10 @@
 // Import the csv-parse library to parse the CSV data from the file
 // Import dotenv to load environment variables from a .env file
 // Import path to handle file paths in a cross-platform way
-import {Client} from 'pg';
 import fs from 'fs';
-import { parse } from 'fast-csv';
+import csv from 'fast-csv';
 import dotenv from 'dotenv';
-import path from 'path';
+import path, { delimiter } from 'path';
 import { Pool } from 'pg';
 import  { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
@@ -25,6 +24,7 @@ async function processAndLoadData() {
   let client;
 
   try {
+
     // Open the new Pool connection to the PostgreSQL database
     const pool = new Pool({
       // Use environment variables for database connection details
@@ -38,6 +38,24 @@ async function processAndLoadData() {
     // Connect to the PostgreSQL database
     client = await pool.connect();
     console.log('Connected to the database successfully.');
+
+    // Create the read stream for the variant_summary.txt file
+    fs.createReadStream('../variant_summary.txt')
+    .pipe(csv.parse({ headers: true, delimiter: '\t' })) // Use tab as the delimiter for the .txt file
+    .on('error', (error) => {
+      console.error('Error reading the file:', error);
+    })
+    .on('data', async (row) => {
+      // Log the row to the console for debugging
+      console.log('Processing row:', row);
+    })
+    .on('end', async (rowCount) => {
+      console.log('Finished processing the file.');
+      console.log(`Total rows processed: ${rowCount} rows`);
+      // Here you can add code to insert the processed data into the database
+      // For example, you can use client.query() to execute SQL INSERT statements
+    })
+
   } catch (error) {
     console.error('Error connecting to the database:', error);
     return;
@@ -57,3 +75,16 @@ async function processAndLoadData() {
 
 
 processAndLoadData();
+
+
+
+
+// Goal: Parse the .txt file successfully
+
+// Pipe the stream to the csv parser
+
+// Add the .on('data', (row) => { ... }) listener.
+
+// Inside the listener, for now, just do one thing: console.log(row).
+
+
