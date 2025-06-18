@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { todo } from "node:test";
 
 // Create the service layer in a future step
 import * as variantService from "../services/variant.service.js";
@@ -12,10 +11,30 @@ import * as variantService from "../services/variant.service.js";
 
 export const getVariants = async (req: Request, res: Response) => {
     try {
-        const variants = await variantService.getAllVariants();
-        // To do: Call variant service to fetch data from the database
-        // For now, send a placeholder response
-        res.status(200).json(variants);
+        // Read in the query parameters from the request URL
+        const pageStr = req.query.page as string | undefined; // Page number for pagination
+        const limitStr = req.query.limit as string | undefined; // Number of items per page
+
+        // Set the default value for the pagination parameters for case when they are not provided
+        // In case when params are provided, parse them into numbers.
+        const page = parseInt(pageStr || '1', 10);
+        const limit = parseInt(limitStr || '25', 10);
+
+        // Call the service function with the page and limit parameters
+        // This function will handle the database query and return the results
+        const result = await variantService.getAllVariants(page, limit);
+
+        // Send a structured response back to the client, including pagination details
+        res.status(200).json({
+            message: 'Variants fetched successfully',
+            data: result.variants,
+            pagination: {
+                currentPage: page,
+                limit: limit,
+                totalItems: result.totalCount,
+                totalPages: Math.ceil(result.totalCount / limit),
+            },
+        });
     } catch (error) {
         console.error('ERROR in getVariants controller:', error);
         res.status(500).json({ message: 'Error fetching variants', error });
