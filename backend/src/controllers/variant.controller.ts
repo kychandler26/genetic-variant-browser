@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { todo } from "node:test";
 
 // Create the service layer in a future step
-// import * as variantService from "../services/variant.service";
+import * as variantService from "../services/variant.service.js";
 
 /**
  * Handles the request to get paginated, filtered and searched list of variants.
@@ -12,13 +12,12 @@ import { todo } from "node:test";
 
 export const getVariants = async (req: Request, res: Response) => {
     try {
+        const variants = await variantService.getAllVariants();
         // To do: Call variant service to fetch data from the database
         // For now, send a placeholder response
-        res.status(200).json({
-            message: 'Placeholder: Will return a list of all variants',
-            // Eventually this will include pagination, filtering, and searching params
-        });
+        res.status(200).json(variants);
     } catch (error) {
+        console.error('ERROR in getVariants controller:', error);
         res.status(500).json({ message: 'Error fetching variants', error });
     }
 }

@@ -1,5 +1,4 @@
 // Import the required modules
-
 import express from 'express';
 import cors from 'cors';
 
