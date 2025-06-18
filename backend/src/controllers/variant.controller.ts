@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
-
-// Create the service layer in a future step
 import * as variantService from "../services/variant.service.js";
+import { parsePagination } from "../utilities/pagination.helper.js";
 
 /**
  * Handles the request to get paginated, filtered and searched list of variants.
@@ -11,14 +10,8 @@ import * as variantService from "../services/variant.service.js";
 
 export const getVariants = async (req: Request, res: Response) => {
     try {
-        // Read in the query parameters from the request URL
-        const pageStr = req.query.page as string | undefined; // Page number for pagination
-        const limitStr = req.query.limit as string | undefined; // Number of items per page
-
-        // Set the default value for the pagination parameters for case when they are not provided
-        // In case when params are provided, parse them into numbers.
-        const page = parseInt(pageStr || '1', 10);
-        const limit = parseInt(limitStr || '25', 10);
+        // Use the parsePagination utility to extract and validate pagination parameters
+        const { page, limit } = parsePagination(req.query);
 
         // Call the service function with the page and limit parameters
         // This function will handle the database query and return the results
