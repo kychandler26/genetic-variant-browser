@@ -38,3 +38,21 @@ export const getAllVariants = async (page: number, limit: number): Promise<IVari
         totalCount
     }
 }
+
+/**
+ * Fetches a single variant by its ID.
+ * @param id The ID of the variant to retrieve.
+ * @returns The variant object if found, or null if not found.
+ * @throws Error if the database query fails.
+ */
+
+export const getVariantById = async (id: number): Promise<any | null> => {
+    // Parameterized query to prevent SQL injection
+    const query = 'SELECT * FROM variants WHERE id = $1';
+
+    const result = await pool.query(query, [id]);
+
+    // If no rows are returned, return null
+    result.rows[0] ?? null;
+    // If a row is found, return the first row
+}

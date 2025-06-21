@@ -42,13 +42,32 @@ export const getVariants = async (req: Request, res: Response) => {
 
 export const getVariantById = async (req: Request, res: Response) => {
     try {
-        const {id} = req.params; // get the ID from the url parameters
-        // TODO: Call variant service to fetch the variant by ID from the database
-        res.status(200).json({
-            message: `Placeholder: Will return variant with ID ${id}`,
-        });
+        // Get the ID from the URL parameter (it will be a string)
+        const id = parseInt(req.params.id, 10);
+
+        // Validate the ID is a valid number (prevent case where user tries api/variants/abc)
+        if (isNaN(id)) {
+            res.status(400).json({message: 'Invalid variant ID.'});
+            return;
+        }
+
+        // Call the service level to fetch the variant by its ID
+        const variant = await variantService.getVariantById(id);
+
+        // Check if the service found a variant
+        if (variant) {
+            // If found, send the variant data back to the client
+            res.status(200).json({
+                message: 'Variant fetched successfully',
+                data: variant,
+            });
+        } else {
+            // If the service returned null, send a 404 Not Found status
+            res.status(404).json({ message: `Variant with ID ${id} not found.` });
+        }
     } catch (error) {
-        res.status(500).json({ message: 'Error fetching variant by ID', error });
+        console.error('ERROR in getVariantById controller:', error);
+        res.status(500).json({ message: 'Error fetching variant', error });
     }
 };
 
