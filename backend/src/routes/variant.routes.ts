@@ -13,13 +13,14 @@ const router = Router();
 // GET /api/variants
 router.get("/", getVariants);
 
+// Route to get aggregated summary data for the dashboard
+// GET /api/variants/summary
+router.get('/summary', getVariantSummary);
+
 // Route to get a specific variant by ID
 // GET /api/variants/:id
 router.get("/:id", getVariantById);
 
-// Route to get aggregated summary data for the dashboard
-// GET /api/variants/summary
-router.get('/summary', getVariantSummary);
 
 // Export the router so it can be used by the main server file
 export default router;

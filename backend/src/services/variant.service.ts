@@ -7,6 +7,16 @@ interface IVariantsResponse {
     totalCount: number; // The total number of variants in the database
 };
 
+interface ICountResult {
+    name: string;
+    value: number;
+}
+
+interface ISummaryResponse {
+    significanceCounts: ICountResult[];
+    typeCounts: ICountResult[];
+}
+
 /**
  * Fetches a list of variants from the database.
  * @param page The page number to retrieve.
@@ -55,4 +65,49 @@ export const getVariantById = async (id: number): Promise<any | null> => {
     // If no rows are returned, return null
     result.rows[0] ?? null;
     // If a row is found, return the first row
+}
+
+/**
+ * Fetches aggregated counts for variant types and clinical significances
+ */
+export const getVariantSummaryData = async (): Promise<ISummaryResponse> => {
+    // Query to count variant grouped by clinical_significance
+    const significanceQuery = `
+    SELECT variant_type as name, COUNT(*) as value
+    FROM variants
+    WHERE variant_type IS NOT NULL
+    GROUP BY variant_type
+    ORDER BY value DESC;
+    `;
+
+    const typeQuery = `
+    SELECT variant_type as name, COUNT(*) as value
+    FROM variants
+    WHERE variant_type IS NOT NULL
+    GROUP BY variant_type
+    ORDER BY value DESC;
+    `;
+
+    // Run both agg queries concurrently using Promise.all
+    const [significanceResult, typeResult] = await Promise.all([
+        pool.query(significanceQuery),
+        pool.query(typeQuery)
+    ]);
+
+    // The database returns the count from COUNT(*) as a string, so parse it
+    const significanceCounts = significanceResult.rows.map(row => ({
+        name: row.name,
+        value: parseInt(row.value, 10)
+    }));
+
+    const typeCounts = typeResult.rows.map(row => ({
+        name: row.name,
+        value: parseInt(row.value, 10)
+    }));
+
+    // Return the final, structured object
+    return {
+        significanceCounts,
+        typeCounts,
+    }
 }

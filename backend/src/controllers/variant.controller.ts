@@ -78,12 +78,16 @@ export const getVariantById = async (req: Request, res: Response) => {
  */
 
 export const getVariantSummary = async (req: Request, res: Response) => {
-    try {
-        //TODO: Call variant service to fetch aggregated data from the database
-        res.status(200).json({
-            message: 'Placeholder: Will return aggregated summary data for the dashboard',
-    });
-    } catch (error) {
-        res.status(500).json({ message: 'Error fetching variant summary', error });
-    }
+  try {
+    // Call the new service function to get the aggregated data
+    const summaryData = await variantService.getVariantSummaryData();
+    
+    // Send the summary data back to the client with a 200 OK status
+    res.status(200).json(summaryData);
+
+  } catch (error) {
+    // Log the full error on the server and send a generic error response
+    console.error('ERROR in getVariantSummary controller:', error);
+    res.status(500).json({ message: 'An internal server error occurred.' });
+  }
 };
