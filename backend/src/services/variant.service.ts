@@ -21,33 +21,55 @@ interface ISummaryResponse {
  * Fetches a list of variants from the database.
  * @param page The page number to retrieve.
  * @param limit The number of items per page.
+ * @param search Optional search term
  */
 
-export const getAllVariants = async (page: number, limit: number): Promise<IVariantsResponse> => {
-    // Calculate the OFFSET for the SQL query
-    // OFFSET is how many rows to skip. For page 1, we skip 0 rows. For page 2, we skip 'limit' rows.
-    const offset = (page - 1) * limit;
+export const getAllVariants = async (
+  page: number,
+  limit: number,
+  search?: string
+): Promise<IVariantsResponse> => {
+  //Start with base queries and an empty array for query parameters.
+  let baseDataQuery = 'SELECT * FROM variants';
+  let baseCountQuery = 'SELECT COUNT(*) FROM variants';
+  const queryParams: any[] = [];
 
-    // Create the two SQL queries to run
-    // Parameterized queries ($1, $2) are used to prevent SQL injection
-    const dataQuery = 'SELECT * FROM variants ORDER BY id LIMIT $1 OFFSET $2';
-    const countQuery = 'SELECT COUNT(*) FROM variants';
+  // Check if search term is provided.
+  if (search) {
+    // Add the WHERE clause. $1 is our search term.
+    const whereClause = ` WHERE gene_name ILIKE $1 OR variant_id ILIKE $1`;
+    baseDataQuery += whereClause;
+    baseCountQuery += whereClause;
+    // Add the search term to the parameters, wrapped in % for pattern matching.
+    queryParams.push(`%${search}%`);
+  }
 
-    const [dataResult, countResult] = await Promise.all([
-        pool.query(dataQuery, [limit, offset]),
-        pool.query(countQuery)
-    ]);
+  // Add pagination to the main data query.
+  // The parameter numbers ($2, $3) must come after any search parameters.
+  const paginationClause = ` ORDER BY id LIMIT $${queryParams.length + 1} OFFSET $${
+    queryParams.length + 2
+  }`;
+  baseDataQuery += paginationClause;
+  
+  // Add the limit and offset values to the parameters array.
+  queryParams.push(limit, (page - 1) * limit);
 
-    // Extract the results from the queries
-    const variants = dataResult.rows;
-    // The count is a string so it is parsed into an integer
-    const totalCount = parseInt(countResult.rows[0].count, 10);
+  // Run both queries concurrently.
+  const [dataResult, countResult] = await Promise.all([
+    pool.query(baseDataQuery, queryParams), // Use the full query with all params
+    // For the count query only need the search param (if it exists)
+    pool.query(baseCountQuery, search ? [`%${search}%`] : []),
+  ]);
 
-    return {
-        variants,
-        totalCount
-    }
-}
+  // Extract and return the results.
+  const variants = dataResult.rows;
+  const totalCount = parseInt(countResult.rows[0].count, 10);
+
+  return {
+    variants,
+    totalCount,
+  };
+};
 
 /**
  * Fetches a single variant by its ID.

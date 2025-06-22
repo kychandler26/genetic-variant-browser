@@ -13,9 +13,12 @@ export const getVariants = async (req: Request, res: Response) => {
         // Use the parsePagination utility to extract and validate pagination parameters
         const { page, limit } = parsePagination(req.query);
 
+        // Get the search term from query parameters, if provided
+        const search = req.query.search as string | undefined;
+
         // Call the service function with the page and limit parameters
         // This function will handle the database query and return the results
-        const result = await variantService.getAllVariants(page, limit);
+        const result = await variantService.getAllVariants(page, limit, search);
 
         // Send a structured response back to the client, including pagination details
         res.status(200).json({
