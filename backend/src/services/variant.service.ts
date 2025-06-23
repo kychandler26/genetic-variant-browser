@@ -22,54 +22,75 @@ interface ISummaryResponse {
  * @param page The page number to retrieve.
  * @param limit The number of items per page.
  * @param search Optional search term
+ * @param significance Optional clinical significance to filter by
+ * @param type Optional variant type to filter by
  */
 
 export const getAllVariants = async (
   page: number,
   limit: number,
-  search?: string
+  search?: string,
+  type?: string,
+  significance?: string
 ): Promise<IVariantsResponse> => {
-  //Start with base queries and an empty array for query parameters.
-  let baseDataQuery = 'SELECT * FROM variants';
-  let baseCountQuery = 'SELECT COUNT(*) FROM variants';
+  // Initialise the query building arrays
+  const whereConditions: string[] = [];
   const queryParams: any[] = [];
 
-  // Check if search term is provided.
+  // Build the WHERE clause dynamically based on provided filters.
   if (search) {
-    // Add the WHERE clause. $1 is our search term.
-    const whereClause = ` WHERE gene_name ILIKE $1 OR variant_id ILIKE $1`;
-    baseDataQuery += whereClause;
-    baseCountQuery += whereClause;
-    // Add the search term to the parameters, wrapped in % for pattern matching.
+    // Dynamically get the next parameter index (e.g., $1)
+    const paramIndex = queryParams.length + 1;
+    whereConditions.push(`(gene_name ILIKE $${paramIndex} OR variant_id ILIKE $${paramIndex})`);
     queryParams.push(`%${search}%`);
   }
 
-  // Add pagination to the main data query.
-  // The parameter numbers ($2, $3) must come after any search parameters.
-  const paginationClause = ` ORDER BY id LIMIT $${queryParams.length + 1} OFFSET $${
-    queryParams.length + 2
-  }`;
-  baseDataQuery += paginationClause;
-  
-  // Add the limit and offset values to the parameters array.
-  queryParams.push(limit, (page - 1) * limit);
+  if (type) {
+    // Dynamically get the next parameter index
+    const paramIndex = queryParams.length + 1;
+    whereConditions.push(`variant_type = $${paramIndex}`);
+    queryParams.push(type);
+  }
 
-  // Run both queries concurrently.
+  if (significance) {
+    // Dynamically get the next parameter index
+    const paramIndex = queryParams.length + 1;
+    whereConditions.push(`clinical_significance = $${paramIndex}`);
+    queryParams.push(significance);
+  }
+
+  // Construct the final WHERE clause string
+  // Check if 'whereConditions' has more than 0 items held within it, if it does have
+  // more than 0 create a string with the word 'WHERE' then take every item in the whereConditions list
+  // and join them together into a single string, putting the word " AND " between each condition.
+  // Store the complete condition (e.g. "WHERE condition1 AND condition 2") in a variable called whereClause
+  // ELSE if the list is empty store an empty string
+  const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+  // Construct the full data and count queries
+  const dataQuery = `SELECT * FROM variants ${whereClause} ORDER BY id LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+  const countQuery = `SELECT COUNT(*) FROM variants ${whereClause}`;
+
+  // Create the final parameter arrays for each query
+  const dataQueryParams = [...queryParams, limit, (page - 1) * limit];
+  // The count query only needs the filter / search params, not limit / offset
+  const countQueryParams = [...queryParams];
+
+  // Run both queries concurrently
   const [dataResult, countResult] = await Promise.all([
-    pool.query(baseDataQuery, queryParams), // Use the full query with all params
-    // For the count query only need the search param (if it exists)
-    pool.query(baseCountQuery, search ? [`%${search}%`] : []),
+    pool.query(dataQuery, dataQueryParams),
+    pool.query(countQuery, countQueryParams),
   ]);
 
-  // Extract and return the results.
+  //Extract and return the results
   const variants = dataResult.rows;
   const totalCount = parseInt(countResult.rows[0].count, 10);
 
   return {
     variants,
-    totalCount,
+    totalCount
   };
-};
+}
 
 /**
  * Fetches a single variant by its ID.
@@ -85,8 +106,7 @@ export const getVariantById = async (id: number): Promise<any | null> => {
     const result = await pool.query(query, [id]);
 
     // If no rows are returned, return null
-    result.rows[0] ?? null;
-    // If a row is found, return the first row
+    return result.rows[0] ?? null;
 }
 
 /**
@@ -95,10 +115,10 @@ export const getVariantById = async (id: number): Promise<any | null> => {
 export const getVariantSummaryData = async (): Promise<ISummaryResponse> => {
     // Query to count variant grouped by clinical_significance
     const significanceQuery = `
-    SELECT variant_type as name, COUNT(*) as value
+    SELECT clinical_significance as name, COUNT(*) as value
     FROM variants
-    WHERE variant_type IS NOT NULL
-    GROUP BY variant_type
+    WHERE clinical_significance IS NOT NULL
+    GROUP BY clinical_significance
     ORDER BY value DESC;
     `;
 
